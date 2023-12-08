@@ -5,6 +5,7 @@ import pandas as pd
 import openpyxl
 import numpy as np
 import tellurium as te
+import matplotlib.pyplot as plt
 
 def get_data(excel_file):
     """
@@ -22,15 +23,7 @@ def get_data(excel_file):
     BOD = df['BOD'].values
     return COD,BOD
 
-#excel_file = 'Reactor 1.xlsx'
-#df = pd.read_excel(excel_file)
-#print(df)
-
-#Select methane potential data
-#This part is testing how to select specific column
-#COD = df['COD']
-#BOD = df['BOD']
-COD,BOD = get_data("Reactor 1.xlsx")
+COD,BOD = get_data("Reactor test2.xlsx")
 
 def methane_production(BOD):
     """
@@ -60,7 +53,7 @@ def get_data_for_Bunsen_coefficient(excel_file):
     Salinity = df['Salinity %'].values
     return Temperature,Salinity
 
-Temperature,Salinity = get_data_for_Bunsen_coefficient("Reactor 1.xlsx")
+Temperature,Salinity = get_data_for_Bunsen_coefficient("Reactor test2.xlsx")
 #print("check salinity")
 #print(type(Salinity)) 
 
@@ -149,11 +142,10 @@ def check_N_DAMO_process(minimum_DM_value):
         return "N-DAMO process exists."
     else:
         return "N-DAMO process does not exist."
-    
 # Example usage:
 # Get the required data from the Excel file
-COD, BOD = get_data("Reactor test.xlsx")
-Temperature, Salinity = get_data_for_Bunsen_coefficient("Reactor test.xlsx")
+COD, BOD = get_data("Reactor test2.xlsx")
+Temperature, Salinity = get_data_for_Bunsen_coefficient("Reactor test2.xlsx")
 
 # Calculate relevant parameters using your functions
 methane_production_values = methane_production(BOD)
@@ -165,44 +157,9 @@ molar_dissolved_methane_values = molar_dissolved_methane(dissolved_methane_value
 # Calculate minimum DM value
 minimum_DM_value = np.min(molar_dissolved_methane_values)
 
-# Check if N-DAMO process exists based on the calculated minimum DM value
-result = check_N_DAMO_process(minimum_DM_value)
-print("N-DAMO Process Check Result:", result)
-
-def DM_inf(minimum_DM_value):
-    """
-    Calculate different ratio of wastewater by using the minimum value in the DM array 
-
-    Args:
-        minimum_DM_value: float.
-
-    Returns:
-        float: calculated minimum value in the DM array.
-    """
-    # Adjust wastewater ratio 
-    ratio = 0.3 
-    DM_inf_value = minimum_DM_value * ratio
-    return DM_inf_value
-DM_inf_value = DM_inf(minimum_DM_value)
-print("DM influent value:", DM_inf_value)
-
-model_str = f"""
-CH4 + NO3 -> NO2; k1*(14/4)*NO3/(k2+NO3)
-CH4 + NO2 -> N2; (8/3)*CH4/(CH4+k3)*NO2/(NO2+k4)
-#k1 is N-DAMO archaea rate constant, k2 is N-DAMO archaea nitrate affinity
-#k3 is N-DAMO bacteria methane affinity, k4 is N-DAMO bacteria nitrite affinity
-k1 = 0.019
-k2 = 0.15
-k3 = 0.092
-k4 = 0.91
-CH4 = {DM_inf_value}  # Assigning the calculated DM_inf_value to CH4
-NO3 = 2.5
-NO2 = 0
-"""
-
 def plot_model(model_str):
     """
-    Creates a roadrunner object and plots the model.
+    Creates a roadrunner object and plots the model using the 'matplotlib' backend.
 
     Parameters
     ----------
@@ -210,10 +167,54 @@ def plot_model(model_str):
     """
     rr = te.loada(model_str)
     data = rr.simulate(0, 24, 200)
-    rr.plot(data, title="N-DAMO process")
+    
+    # Set the plotting backend to 'matplotlib'
+    rr.plot(data, title="N-DAMO process", show=True, backend="matplotlib")
 
-# N-DAMO test
-plot_model(model_str)
+def should_plot_NDAMO_figure(minimum_DM_value):
+    """
+    Check if the N-DAMO process exists and returns a boolean value.
 
+    Args:
+        minimum_DM_value: float.
 
+    Returns:
+        bool: True if the N-DAMO process exists, False otherwise.
+    """
+    return minimum_DM_value > 1
 
+def process_and_plot(minimum_DM_value):
+    """
+    Make a decision based on the N-DAMO process check and plot the model if the process exists.
+
+    Args:
+        minimum_DM_value: float.
+    """
+    if should_plot_NDAMO_figure(minimum_DM_value):
+        # Calculate DM_inf_value
+        ratio = 0.3 
+        DM_inf_value = minimum_DM_value * ratio
+        print(f"N-DAMO process exists! Dissolved methane influent value: {DM_inf_value}")
+
+        # Build the model string using the calculated DM_inf_value
+        model_str = f"""
+        CH4 + NO3 -> NO2; k1*(14/4)*NO3/(k2+NO3)
+        CH4 + NO2 -> N2; (8/3)*CH4/(CH4+k3)*NO2/(NO2+k4)
+        #k1 is N-DAMO archaea rate constant, k2 is N-DAMO archaea nitrate affinity
+        #k3 is N-DAMO bacteria methane affinity, k4 is N-DAMO bacteria nitrite affinity
+        k1 = 0.019
+        k2 = 0.15
+        k3 = 0.092
+        k4 = 0.91
+        CH4 = {DM_inf_value}  # Assigning the calculated DM_inf_value to CH4
+        NO3 = 2.5
+        NO2 = 0
+        """
+
+        # Plot the model
+        plot_model(model_str)
+    else:
+        # End the process
+        print("N-DAMO process does not exist. Ending the process.")
+
+process_and_plot(minimum_DM_value)
