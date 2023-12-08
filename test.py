@@ -2,7 +2,9 @@ import unittest
 import os
 import pandas as pd
 import numpy as np
-from function import get_data, methane_production, get_data_for_Bunsen_coefficient, Temperature_conversion, Bunsen_coefficient, dissolved_methane, molar_dissolved_methane, check_N_DAMO_process
+import tellurium as te
+from unittest.mock import patch, MagicMock
+from function import get_data, methane_production, get_data_for_Bunsen_coefficient, Temperature_conversion, Bunsen_coefficient, dissolved_methane, molar_dissolved_methane, check_N_DAMO_process, plot_model
 
 class TestDataFunctions(unittest.TestCase):
     def test_get_data(self):
@@ -98,6 +100,57 @@ class TestDataFunctions(unittest.TestCase):
         molar_dissolved_methane_does_not_exist = np.array([0.5, 0.8, 1.0])
         result_does_not_exist = check_N_DAMO_process(molar_dissolved_methane_does_not_exist)
         self.assertEqual(result_does_not_exist, "N-DAMO process does not exist.")
+
+class TestPlotModelFunction(unittest.TestCase):
+
+    @patch('function.te.loada')
+    @patch('function.te.matplotlib.pyplot.get_backend', return_value='module://mock_backend')
+    def test_plot_model(self, mock_get_backend, mock_loada):
+        # Mocking get_backend to always return True for testing purposes
+
+        # Mocking loada to return a MagicMock object
+        mock_loada.return_value = MagicMock()
+
+        # Define a model string for testing
+        model_str = """
+        CH4 -> CO2; k1*CH4
+        k1 = 0.1
+        CH4 = 10
+        """
+
+        # Ensure the function does not raise any exceptions
+        try:
+            plot_model(model_str)
+        except Exception as e:
+            self.fail(f"plot_model raised an exception: {e}")
+
+        # Verify that loada was called with the correct argument
+        mock_loada.assert_called_once_with(model_str)
+
+        # Verify that the simulate and plot functions were called on the MagicMock object
+        mock_loada.return_value.simulate.assert_called_once_with(0, 24, 200)
+        mock_loada.return_value.plot.assert_called_once_with(
+            mock_loada.return_value.simulate.return_value,
+            title="N-DAMO process",
+            show=True,
+            backend="matplotlib"
+        )
+
+    @patch('function.te.loada')
+    @patch('function.te.matplotlib.pyplot.get_backend', return_value='module://mock_backend')
+    def test_plot_model_with_unavailable_backend(self, mock_get_backend, mock_loada):
+        # Mocking get_backend to always return False for testing purposes
+
+        # Define a model string for testing
+        model_str = """
+        CH4 -> CO2; k1*CH4
+        k1 = 0.1
+        CH4 = 10
+        """
+
+        # Ensure the function raises a ValueError for an unavailable backend
+        with self.assertRaises(ValueError):
+            plot_model(model_str)
 
 if __name__ == '__main__':
     unittest.main()

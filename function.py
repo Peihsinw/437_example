@@ -5,7 +5,6 @@ import pandas as pd
 import openpyxl
 import numpy as np
 import tellurium as te
-import matplotlib.pyplot as plt
 
 def get_data(excel_file):
     """
@@ -138,7 +137,7 @@ def check_N_DAMO_process(minimum_DM_value):
     Returns:
         str: Message indicating the existence of the N-DAMO process.
     """
-    if minimum_DM_value > 1:
+    if np.any(minimum_DM_value > 1):
         return "N-DAMO process exists."
     else:
         return "N-DAMO process does not exist."
@@ -167,7 +166,7 @@ def plot_model(model_str):
     """
     rr = te.loada(model_str)
     data = rr.simulate(0, 24, 200)
-    
+
     # Set the plotting backend to 'matplotlib'
     rr.plot(data, title="N-DAMO process", show=True, backend="matplotlib")
 
@@ -218,3 +217,9 @@ def process_and_plot(minimum_DM_value):
         print("N-DAMO process does not exist. Ending the process.")
 
 process_and_plot(minimum_DM_value)
+
+import sys
+from pathlib import Path
+
+virtualenv_path = Path(sys.prefix)
+print("Virtual Environment Path:", virtualenv_path)
